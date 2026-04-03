@@ -6,12 +6,14 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.demo.dto.LoginRequest;
 import com.example.demo.dto.RegisterRequest;
 import com.example.demo.model.User;
 import com.example.demo.reposiotry.UserRepository;
@@ -51,11 +53,11 @@ public class AuthController {
 
         Map<String, Object> response = new HashMap<>();
 
-        Optional<User> user = userRepository.findByEmail(request.getEmail());
+         Optional<User> user = userRepository.findByEmail(request.getEmail());
 
         if (user.isPresent() &&
             user.get().getPassword().equals(request.getPassword())) {
-
+        	
             response.put("message", "Login successful");
             response.put("user", user.get());
             response.put("success", true);
@@ -68,5 +70,33 @@ public class AuthController {
         response.put("success", false);
 
         return ResponseEntity.status(401).body(response);
+    }
+    
+   
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Not logged in");
+        }
+
+        Object principal = authentication.getPrincipal();
+        Map<String, Object> response = new HashMap<>();
+
+        // 🔹 Google OAuth login
+        if (principal instanceof OAuth2User oauthUser) {
+
+            response.put("name", oauthUser.getAttribute("name"));
+            response.put("email", oauthUser.getAttribute("email"));
+            response.put("provider", "GOOGLE");
+
+            return ResponseEntity.ok(response);
+        }
+
+        // 🔹 Normal login (if using UserDetails later)
+        response.put("username", principal.toString());
+        response.put("provider", "LOCAL");
+
+        return ResponseEntity.ok(response);
     }
 }
